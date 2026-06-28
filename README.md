@@ -83,7 +83,7 @@ lycoris/
 
 ## Author
 
-**Aswin** — Security Analyst | VAPT  
+**Aswin** - Ethical Hacker | Security Analyst  
 [LinkedIn](https://www.linkedin.com/in/aswin-nair18/)
 
 ---

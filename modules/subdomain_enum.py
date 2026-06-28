@@ -1,26 +1,15 @@
 """
 Module: subdomain_enum.py
 Purpose: Passive subdomain discovery via Certificate Transparency logs
-
-Techniques:
-  - Certificate Transparency log mining via crt.sh
-  - Fully passive — no direct contact with target infrastructure
-  - Live host validation via DNS A record resolution
-  - Pattern-based classification for high-interest subdomains
-
-Why CT logs?
-  Every SSL/TLS certificate issued by a public CA is logged to
-  Certificate Transparency logs by design. crt.sh indexes these
-  publicly. This lets us enumerate subdomains without sending a
-  single packet to the target — purely passive reconnaissance.
 """
 
 import requests
 import dns.resolver
+import time
+import urllib.parse
 from rich.table import Table
 from rich import box
 from rich.panel import Panel
-
 
 INTERESTING_PATTERNS = [
     "admin", "administrator", "portal", "dashboard", "manage", "management",
@@ -40,30 +29,75 @@ INTERESTING_PATTERNS = [
     "beta", "alpha", "preview",
 ]
 
-
 def _query_crtsh(domain):
+    """Query crt.sh with proper encoding, retries, and fallback to CertSpotter."""
+    max_retries = 3
+    base_timeout = 25
+    
+    # URL-encode the wildcard: "%.example.com" → "%25.example.com"
+    query = f"%.{domain}"
+    encoded_query = urllib.parse.quote(query)
+    
+    for attempt in range(max_retries):
+        try:
+            timeout = base_timeout + (attempt * 5)
+            resp = requests.get(
+                f"https://crt.sh/?q={encoded_query}&output=json&exclude=expired",
+                timeout=timeout,
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                }
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            elif resp.status_code in (500, 502, 503, 429):
+                # Server errors – wait and retry
+                wait = 5 * (attempt + 1)
+                time.sleep(wait)
+                continue
+        except requests.exceptions.Timeout:
+            time.sleep(3)
+            continue
+        except Exception:
+            time.sleep(2)
+            continue
+    
+    # Fallback to CertSpotter API (more reliable)
     try:
         resp = requests.get(
-            f"https://crt.sh/?q=%.{domain}&output=json",
-            timeout=50,
+            f"https://api.certspotter.com/v1/issuances?domain={domain}&include_subdomains=true&expand=dns_names",
+            timeout=30,
             headers={"Accept": "application/json"}
         )
         if resp.status_code == 200:
             return resp.json()
     except Exception:
         pass
-    return []
-
+    
+    return []  # Return empty if all fail
 
 def _extract_subdomains(crt_data, base_domain):
     found = set()
-    for entry in crt_data:
-        for name in entry.get("name_value", "").split("\n"):
-            name = name.strip().lower().lstrip("*.")
-            if name.endswith(f".{base_domain}") or name == base_domain:
-                found.add(name)
+    if not crt_data:
+        return sorted(found)
+    
+    # Detect API format
+    if isinstance(crt_data, list) and crt_data and "dns_names" in crt_data[0]:
+        # CertSpotter format
+        for entry in crt_data:
+            for name in entry.get("dns_names", []):
+                name = name.strip().lower()
+                if name.endswith(f".{base_domain}") or name == base_domain:
+                    found.add(name)
+    else:
+        # crt.sh format
+        for entry in crt_data:
+            for name in entry.get("name_value", "").split("\n"):
+                name = name.strip().lower().lstrip("*.")
+                if name.endswith(f".{base_domain}") or name == base_domain:
+                    found.add(name)
     return sorted(found)
-
 
 def _resolve_host(hostname):
     try:
@@ -74,14 +108,12 @@ def _resolve_host(hostname):
     except Exception:
         return []
 
-
 def _classify_subdomain(subdomain, base_domain):
     prefix = subdomain.replace(f".{base_domain}", "").lower()
     for pattern in INTERESTING_PATTERNS:
         if pattern in prefix:
             return pattern
     return None
-
 
 def run_subdomain_enum(target, console):
     console.print(f"[*] Querying Certificate Transparency logs (crt.sh) for [bold]{target}[/bold]...")
@@ -98,8 +130,8 @@ def run_subdomain_enum(target, console):
 
     crt_data = _query_crtsh(target)
     if not crt_data:
-        console.print("  [yellow][!] No CT log data returned. crt.sh may have timed out.[/yellow]")
-        data["errors"].append("crt.sh returned no data")
+        console.print("  [yellow][!] No CT log data returned from crt.sh or CertSpotter.[/yellow]")
+        data["errors"].append("No data from CT logs")
         return data
 
     data["total_ct_entries"] = len(crt_data)

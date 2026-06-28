@@ -88,7 +88,6 @@ def print_help_screen():
     opt_table.add_row("-o, --output",  "Output directory for JSON + report",          "output/")
     opt_table.add_row("-r, --report",  "Generate Markdown intelligence report",       "off")
     opt_table.add_row("--html",        "Generate HTML intelligence report",           "off")
-    opt_table.add_row("--shodan-key",  "Shodan API key (or env SHODAN_API_KEY)",      "none")
     opt_table.add_row("-h, --help",    "Show this help screen",                       "")
 
     console.print("  [bold white]Options:[/bold white]")
@@ -101,9 +100,6 @@ def print_help_screen():
     mod_table.add_row("whois",                  "WHOIS/RDAP lookup, registrar, domain age, privacy detection")
     mod_table.add_row("dns",                    "A/MX/NS/TXT/SOA records, zone transfer, SPF/DMARC analysis")
     mod_table.add_row("subdomains",             "CT log mining via crt.sh, live resolution, pattern flagging")
-    mod_table.add_row("[dim]shodan[/dim]",       "[dim]IP intel, open ports, banners (coming v1.1)[/dim]")
-    mod_table.add_row("[dim]emails[/dim]",       "[dim]Email harvesting via Hunter.io (coming v1.2)[/dim]")
-    mod_table.add_row("[dim]dorks[/dim]",        "[dim]Automated Google dorking (coming v1.3)[/dim]")
     mod_table.add_row("all",                    "Run all available modules")
 
     console.print("  [bold white]Modules:[/bold white]")
@@ -115,7 +111,6 @@ def print_help_screen():
         ("Full scan with HTML report",             "python lycoris.py -t example.com -m all --html"),
         ("WHOIS + DNS only",                       "python lycoris.py -t example.com -m whois,dns"),
         ("Subdomains, custom output dir",          "python lycoris.py -t example.com -m subdomains -o ~/recon"),
-        ("With Shodan key from env",               "SHODAN_API_KEY=xyz python lycoris.py -t example.com -r"),
     ]
     for label, cmd in examples:
         console.print(f"    [dim]# {label}[/dim]")
@@ -152,7 +147,7 @@ def save_session(target, results, output_dir):
 @click.option("--output",    "-o", default="output", help="Output directory (default: output)")
 @click.option("--report",    "-r", is_flag=True,     help="Generate Markdown intelligence report")
 @click.option("--html",            is_flag=True,     help="Generate HTML intelligence report (in addition to JSON)")
-def main(target, modules, output, report, html, shodan_key):
+def main(target, modules, output, report, html):
     """Lycoris — Modular OSINT & Footprinting Framework"""
 
     if not target:

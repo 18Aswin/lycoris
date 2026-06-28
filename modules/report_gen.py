@@ -26,7 +26,7 @@ def generate_report(target, results, output_dir, console):
 
     # ── Cover ──────────────────────────────────────────────────────────────
     lines += [
-        "# Lycoris — Intelligence Report",
+        "# Recon Atlas — Intelligence Report",
         "",
         "| | |",
         "|---|---|",
@@ -252,4 +252,391 @@ def generate_report(target, results, output_dir, console):
         f.write("\n".join(lines))
 
     console.print(f"  [green]✓ Report written[/green]")
+    return report_path
+
+def generate_html_report(target, results, output_dir, console):
+    """Generate a standalone HTML report with embedded CSS."""
+    console.print("\n[*] Generating HTML report...")
+
+    from jinja2 import Template
+    import json
+    from datetime import datetime
+
+    filename_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_path = f"{output_dir}/{target}_{filename_ts}_report.html"
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Prepare data for the template
+    whois_data = results.get("whois", {})
+    dns_data   = results.get("dns", {})
+    sub_data   = results.get("subdomains", {})
+
+    # Extract key pieces
+    spf   = dns_data.get("spf_analysis", {})
+    dmarc = dns_data.get("dmarc_analysis", {})
+
+    # Risk flags (same as Markdown report)
+    risk_flags = []
+    if whois_data.get("domain_age_days") and whois_data["domain_age_days"] < 180:
+        risk_flags.append(f"🔴 Domain age < 6 months ({whois_data['domain_age_days']} days)")
+    if whois_data.get("privacy_protected"):
+        risk_flags.append("🟡 WHOIS privacy protection enabled")
+
+    if not spf.get("found"):
+        risk_flags.append("🔴 No SPF record — email spoofing possible")
+    elif "WEAK" in spf.get("risk", "") or "CRITICAL" in spf.get("risk", ""):
+        risk_flags.append(f"🟡 Weak SPF policy: `{spf.get('all_mechanism')}`")
+    if not dmarc.get("found"):
+        risk_flags.append("🔴 No DMARC record — phishing emails may reach inboxes")
+    elif dmarc.get("policy") == "none":
+        risk_flags.append("🟡 DMARC policy = `none` (monitoring only)")
+
+    zt_vuln = [z for z in dns_data.get("zone_transfer", []) if z.get("vulnerable")]
+    if zt_vuln:
+        risk_flags.append(f"🔴 CRITICAL: Zone transfer succeeded on {', '.join(z['ns'] for z in zt_vuln)}")
+
+    interesting = sub_data.get("interesting_subdomains", [])
+    if interesting:
+        risk_flags.append(f"🟡 {len(interesting)} high-interest subdomains discovered")
+
+    # Build context for Jinja2
+    context = {
+        "target": target,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "modules_run": ", ".join(results['meta']['modules_run']),
+        "whois": whois_data,
+        "dns": dns_data,
+        "subdomains": sub_data,
+        "spf": spf,
+        "dmarc": dmarc,
+        "risk_flags": risk_flags,
+        "zt_vuln": zt_vuln,
+        "interesting_subdomains": interesting,
+        "live_subdomains": sub_data.get("live_subdomains", []),
+        "unique_subdomains": sub_data.get("unique_subdomains", []),
+        "ssl_info": dns_data.get("ssl_info"),
+        "http_headers": dns_data.get("http_headers"),
+        "zone_transfer": dns_data.get("zone_transfer", []),
+        "records": dns_data.get("records", {}),
+    }
+
+    # HTML template (self-contained)
+    template_str = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lycoris Recon Report – {{ target }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0d1117;
+            color: #c9d1d9;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1, h2, h3 { color: #f0f6fc; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        h1 { font-size: 2.2rem; border-bottom: 2px solid #30363d; padding-bottom: 0.3rem; }
+        h2 { font-size: 1.8rem; border-bottom: 1px solid #30363d; padding-bottom: 0.2rem; }
+        h3 { font-size: 1.3rem; color: #8b949e; }
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-right: 0.3rem;
+        }
+        .badge-green { background: #2ea043; color: #fff; }
+        .badge-yellow { background: #d29922; color: #0d1117; }
+        .badge-red { background: #da3633; color: #fff; }
+        .badge-gray { background: #30363d; color: #8b949e; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            background: #161b22;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        th {
+            background: #21262d;
+            color: #f0f6fc;
+            font-weight: 600;
+            padding: 0.5rem 0.8rem;
+            text-align: left;
+        }
+        td {
+            padding: 0.4rem 0.8rem;
+            border-bottom: 1px solid #30363d;
+        }
+        tr:last-child td { border-bottom: none; }
+        .risk-high { color: #f85149; font-weight: bold; }
+        .risk-medium { color: #d29922; font-weight: bold; }
+        .risk-low { color: #3fb950; font-weight: bold; }
+        .note {
+            background: #21262d;
+            border-left: 4px solid #d29922;
+            padding: 0.8rem 1.2rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+        .note-critical { border-left-color: #f85149; }
+        .note-good { border-left-color: #3fb950; }
+        .footer {
+            margin-top: 3rem;
+            padding-top: 1rem;
+            border-top: 1px solid #30363d;
+            color: #8b949e;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+        .subdomain-flag {
+            color: #d29922;
+            font-weight: bold;
+        }
+        .code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; background: #0d1117; padding: 0.1rem 0.4rem; border-radius: 4px; }
+        @media (max-width: 600px) {
+            body { padding: 1rem; }
+            table, th, td { font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <h1>🕵️ Lycoris – Intelligence Report</h1>
+    <p><strong>Target:</strong> {{ target }}<br>
+    <strong>Generated:</strong> {{ timestamp }}<br>
+    <strong>Tool:</strong> Lycoris v1.0<br>
+    <strong>Modules:</strong> {{ modules_run }}</p>
+
+    <div class="note note-critical">
+        <strong>⚠️ Legal Notice:</strong> This report was generated against a target for which explicit written authorization was obtained. Unauthorized use is illegal.
+    </div>
+
+    <hr style="border: 1px solid #30363d; margin: 2rem 0;">
+
+    <!-- ========== 1. Executive Summary ========== -->
+    <h2>1. Executive Summary</h2>
+    <p>Passive and active footprinting intelligence gathered against <code>{{ target }}</code>.</p>
+
+    {% if risk_flags %}
+        <h3>Key Findings</h3>
+        <ul>
+        {% for flag in risk_flags %}
+            <li>{{ flag }}</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>✅ No critical findings identified.</p>
+    {% endif %}
+
+    <hr>
+
+    <!-- ========== 2. WHOIS ========== -->
+    <h2>2. WHOIS &amp; Domain Intelligence</h2>
+    <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Domain</td><td>{{ whois.get('domain', 'N/A') }}</td></tr>
+        <tr><td>Registrar</td><td>{{ whois.get('registrar', 'N/A') }}</td></tr>
+        <tr><td>Registrant Org</td><td>{{ whois.get('registrant_org', 'N/A') }}</td></tr>
+        <tr><td>Registrant Country</td><td>{{ whois.get('registrant_country', 'N/A') }}</td></tr>
+        <tr><td>Created</td><td>{{ whois.get('created', 'N/A') }}</td></tr>
+        <tr><td>Expires</td><td>{{ whois.get('expires', 'N/A') }}</td></tr>
+        <tr><td>Domain Age</td><td>{{ whois.get('domain_age_days', 'N/A') }} days</td></tr>
+        <tr><td>Privacy Protected</td><td>{% if whois.get('privacy_protected') %}✅ Yes{% else %}❌ No{% endif %}</td></tr>
+        <tr><td>DNSSEC</td><td>{{ whois.get('dnssec', 'N/A') }}</td></tr>
+        <tr><td>Name Servers</td><td>{% for ns in whois.get('name_servers', []) %}<code>{{ ns }}</code> {% endfor %}</td></tr>
+    </table>
+
+    <hr>
+
+    <!-- ========== 3. DNS ========== -->
+    <h2>3. DNS Enumeration</h2>
+
+    <h3>DNS Records</h3>
+    <table>
+        <tr><th>Type</th><th>Value</th></tr>
+        {% for rtype, values in records.items() %}
+            {% if values %}
+                {% for val in values %}
+                    <tr><td>{{ rtype }}</td><td><code>{{ val }}</code></td></tr>
+                {% endfor %}
+            {% else %}
+                <tr><td>{{ rtype }}</td><td><em>No record</em></td></tr>
+            {% endif %}
+        {% endfor %}
+    </table>
+
+    <h3>Zone Transfer Results</h3>
+    <ul>
+    {% for z in zone_transfer %}
+        <li><code>{{ z.ns }}</code> — {% if z.vulnerable %}<span class="risk-high">🔴 VULNERABLE</span>{% else %}✅ Refused{% endif %}</li>
+    {% else %}
+        <li><em>Not attempted or no NS records found.</em></li>
+    {% endfor %}
+    </ul>
+
+    <h3>Email Security (SPF / DMARC)</h3>
+    <table>
+        <tr><th>Protocol</th><th>Status</th><th>Value</th></tr>
+        <tr>
+            <td>SPF</td>
+            <td>{% if spf.get('found') %}✅ Found{% else %}🔴 Missing{% endif %}</td>
+            <td><code>{{ spf.get('value', 'N/A') }}</code></td>
+        </tr>
+        <tr>
+            <td>DMARC</td>
+            <td>{% if dmarc.get('found') %}✅ Found{% else %}🔴 Missing{% endif %}</td>
+            <td><code>{{ dmarc.get('value', 'N/A') }}</code></td>
+        </tr>
+    </table>
+    {% if spf.get('risk') %}
+        <p><strong>SPF:</strong> {{ spf['risk'] }}</p>
+    {% endif %}
+    {% if dmarc.get('policy') %}
+        <p><strong>DMARC Policy:</strong> <code>{{ dmarc['policy'] }}</code></p>
+    {% endif %}
+
+    <!-- SSL -->
+    {% if ssl_info %}
+        <h3>SSL Certificate</h3>
+        <table>
+            <tr><th>Field</th><th>Value</th></tr>
+            <tr><td>Issuer</td><td>{{ ssl_info.get('issuer', {}).get('organizationName', ['Unknown'])[0] }}</td></tr>
+            <tr><td>Expiry</td><td>{{ ssl_info.get('expiry', 'N/A') }}</td></tr>
+            <tr><td>Subject Alternative Names</td><td>{{ ssl_info.get('san', []) | join(', ') or 'None' }}</td></tr>
+        </table>
+    {% endif %}
+
+    <!-- HTTP Headers -->
+    {% if http_headers %}
+        <h3>HTTP Headers</h3>
+        <table>
+            <tr><th>Field</th><th>Value</th></tr>
+            <tr><td>Scheme</td><td>{{ http_headers.get('scheme', 'N/A') }}</td></tr>
+            <tr><td>Status Code</td><td>{{ http_headers.get('status_code', 'N/A') }}</td></tr>
+            <tr><td>Server</td><td>{{ http_headers.get('server', 'N/A') }}</td></tr>
+            <tr><td>X-Powered-By</td><td>{{ http_headers.get('x_powered_by', 'N/A') }}</td></tr>
+            <tr><td>Content-Security-Policy</td><td><code>{{ http_headers.get('csp', 'None')[:100] }}{% if http_headers.get('csp')|length > 100 %}...{% endif %}</code></td></tr>
+        </table>
+    {% endif %}
+
+    <hr>
+
+    <!-- ========== 4. Subdomains ========== -->
+    <h2>4. Subdomain Enumeration</h2>
+    <p><strong>Source:</strong> Certificate Transparency logs (crt.sh) – passive only.</p>
+    <table>
+        <tr><th>Metric</th><th>Count</th></tr>
+        <tr><td>Unique subdomains</td><td>{{ unique_subdomains|length }}</td></tr>
+        <tr><td>Live hosts</td><td>{{ live_subdomains|length }}</td></tr>
+        <tr><td>High-interest targets</td><td>{{ interesting_subdomains|length }}</td></tr>
+    </table>
+
+    {% if live_subdomains %}
+        <h3>Live Subdomains</h3>
+        <table>
+            <tr><th>Subdomain</th><th>IP(s)</th><th>PTR</th><th>Pattern</th></tr>
+            {% for item in live_subdomains %}
+                <tr>
+                    <td><code>{{ item.subdomain }}</code></td>
+                    <td><code>{{ item.ips | join(', ') }}</code></td>
+                    <td>{{ item.get('ptrs', []) | join(', ') or '—' }}</td>
+                    <td>{% if item.pattern %}<span class="subdomain-flag">⚠ {{ item.pattern }}</span>{% else %}—{% endif %}</td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% endif %}
+
+    {% if interesting_subdomains %}
+        <h3>⚠️ High-Interest Subdomains</h3>
+        <ul>
+        {% for item in interesting_subdomains %}
+            <li><code>{{ item.subdomain }}</code> ({{ item.pattern }}) — IP: {{ item.ips | join(', ') }} — PTR: {{ item.get('ptrs', []) | join(', ') or '—' }}</li>
+        {% endfor %}
+        </ul>
+    {% endif %}
+
+    <hr>
+
+    <!-- ========== 5. Attack Surface ========== -->
+    <h2>5. Attack Surface Summary</h2>
+    <table>
+        <tr><th>Vector</th><th>Finding</th><th>Risk</th></tr>
+        <tr>
+            <td>Email Spoofing</td>
+            <td>{% if spf.get('found') and dmarc.get('found') %}SPF + DMARC configured{% else %}Partial or missing controls{% endif %}</td>
+            <td>
+                {% if spf.get('found') and dmarc.get('found') and dmarc.get('policy') == 'reject' %}
+                    <span class="risk-low">🟢 LOW</span>
+                {% elif spf.get('found') and dmarc.get('found') %}
+                    <span class="risk-medium">🟡 MEDIUM</span>
+                {% else %}
+                    <span class="risk-high">🔴 HIGH</span>
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td>DNS Zone Transfer</td>
+            <td>{% if zt_vuln %}AXFR succeeded on {{ zt_vuln[0].ns }}{% else %}Refused on all NS{% endif %}</td>
+            <td>{% if zt_vuln %}<span class="risk-high">🔴 CRITICAL</span>{% else %}<span class="risk-low">🟢 LOW</span>{% endif %}</td>
+        </tr>
+        <tr>
+            <td>Subdomain Exposure</td>
+            <td>{{ interesting_subdomains|length }} high-interest subdomains live</td>
+            <td>{% if interesting_subdomains|length > 0 %}<span class="risk-medium">🟡 MEDIUM</span>{% else %}<span class="risk-low">🟢 LOW</span>{% endif %}</td>
+        </tr>
+        {% if ssl_info %}
+            <tr>
+                <td>SSL Certificate Expiry</td>
+                <td>
+                    {% set expiry_str = ssl_info.get('expiry', '') %}
+                    {% if expiry_str %}
+                        {% set days_left = 0 %}
+                        {# We cannot do arithmetic in Jinja, but we can just show the expiry #}
+                        Expires on {{ expiry_str }}
+                    {% else %}N/A{% endif %}
+                </td>
+                <td>
+                    {# We'll just show a static note, but we can compute if we pass days_left #}
+                    <span class="badge badge-gray">See full certificate</span>
+                </td>
+            </tr>
+        {% endif %}
+    </table>
+
+    <hr>
+
+    <!-- ========== 6. Recommendations ========== -->
+    <h2>6. Recommended Next Steps</h2>
+    <ol>
+        <li><strong>Web fingerprinting</strong> — Run <code>whatweb</code>, <code>wafw00f</code> against live subdomains.</li>
+        <li><strong>Port scanning</strong> — Nmap SYN scan against resolved IPs.</li>
+        <li><strong>Directory enumeration</strong> — <code>ffuf</code> / <code>gobuster</code> against high-interest subdomains.</li>
+        <li><strong>Email harvesting</strong> — theHarvester / Hunter.io against <code>{{ target }}</code>.</li>
+        <li><strong>Google dorking</strong> — <code>site:{{ target }} filetype:pdf OR filetype:env OR intitle:"index of"</code></li>
+        <li><strong>Shodan</strong> — Query discovered IPs for open services and banners.</li>
+    </ol>
+
+    <div class="footer">
+        Report generated by <a href="https://github.com/18Aswin/lycoris" style="color: #58a6ff;">Lycoris</a> v1.0
+    </div>
+
+</div>
+</body>
+</html>
+    """
+
+    template = Template(template_str)
+    html_content = template.render(**context)
+
+    with open(report_path, "w", encoding="utf-8") as f:
+        f.write(html_content)
+
+    console.print(f"  [green]✓ HTML report generated[/green]")
     return report_path

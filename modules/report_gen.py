@@ -26,7 +26,7 @@ def generate_report(target, results, output_dir, console):
 
     # ── Cover ──────────────────────────────────────────────────────────────
     lines += [
-        "# Recon Atlas — Intelligence Report",
+        "# Lycoris — Intelligence Report",
         "",
         "| | |",
         "|---|---|",

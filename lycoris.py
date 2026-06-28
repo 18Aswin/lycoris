@@ -183,17 +183,17 @@ def main(target, modules, output, report, shodan_key):
     }
 
     if "whois" in selected:
-        console.rule("[bold #C8102E]MODULE 1  ·  WHOIS & DOMAIN INTELLIGENCE[/bold #C8102E]")
+        console.rule("[bold #C8102E]1  ·  WHOIS & DOMAIN INTELLIGENCE[/bold #C8102E]")
         console.print()
         results["whois"] = run_whois(target, console)
 
     if "dns" in selected:
-        console.rule("[bold #4A55A2]MODULE 2  ·  DNS ENUMERATION[/bold #4A55A2]")
+        console.rule("[bold #4A55A2]2  ·  DNS ENUMERATION[/bold #4A55A2]")
         console.print()
         results["dns"] = run_dns(target, console)
 
     if "subdomains" in selected:
-        console.rule("[bold #9B2048]MODULE 3  ·  SUBDOMAIN ENUMERATION[/bold #9B2048]")
+        console.rule("[bold #9B2048]3  ·  SUBDOMAIN ENUMERATION[/bold #9B2048]")
         console.print()
         results["subdomains"] = run_subdomain_enum(target, console)
 

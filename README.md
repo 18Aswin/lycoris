@@ -34,7 +34,6 @@ Lycoris is a Python CLI framework for automated passive and active footprinting.
 git clone https://github.com/18Aswin/lycoris.git
 cd lycoris
 pip install -r requirements.txt
----
 
 ```
 ## **Usage**

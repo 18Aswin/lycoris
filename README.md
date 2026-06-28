@@ -72,7 +72,7 @@ python lycoris.py -t example.com -m subdomains -o ~/recon
 | `-o / --output` | Output directory | `output/` |
 | `-r / --report` | Generate Markdown report | off |
 | `--html` | Generate HTML report | off |
-| `-h / --help` | Show help screen | - |
+| `-h / --help` | Show help screen | N/A |
 
 ---
 

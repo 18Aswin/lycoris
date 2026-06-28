@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Status](https://img.shields.io/badge/status-active-brightgreen)]()
 
-Lycoris is a Python CLI framework for automated passive and active footprinting. It aggregates WHOIS intelligence, DNS enumeration, and certificate transparency-based subdomain discovery into a structured pre-engagement intelligence report — the kind a real red team delivers before an engagement begins.
+Lycoris is a Python CLI framework for automated passive and active footprinting. It aggregates WHOIS intelligence, DNS enumeration, certificate transparency‑based subdomain discovery, SSL certificate analysis, HTTP header inspection, and reverse DNS lookups into a structured pre‑engagement intelligence report – the kind a real red team delivers before an engagement begins.
 
 ---
 
@@ -18,13 +18,18 @@ Lycoris is a Python CLI framework for automated passive and active footprinting.
 
 ---
 
-## Features
+## Features (v1.1)
 
-- **WHOIS Intelligence** — Registrar, registrant, domain age, DNSSEC, privacy detection, RDAP fallback
-- **DNS Enumeration** — Full record set (A, AAAA, MX, NS, TXT, CNAME, SOA), AXFR zone transfer attempt, SPF/DMARC analysis with phishing verdict
-- **Subdomain Discovery** — Passive CT log mining via crt.sh, live DNS resolution, pattern-based classification (dev/admin/api/staging/vpn/jenkins...)
-- **Intelligence Report** — Auto-generated Markdown pre-engagement report with attack surface summary
-- **Session Persistence** — Raw JSON saved per run
+- **WHOIS Intelligence** — Registrar, registrant, domain age, DNSSEC, privacy detection, RDAP fallback.
+- **DNS Enumeration** — Full record set (A, AAAA, MX, NS, TXT, CNAME, SOA), AXFR zone transfer attempt, SPF/DMARC analysis with phishing verdict.
+- **Subdomain Discovery** — Passive CT log mining via crt.sh, live DNS resolution, pattern‑based classification (dev/admin/api/staging/vpn/jenkins...).
+- **Reverse DNS (PTR)** — Maps discovered IPs back to hostnames, often revealing internal naming schemes.
+- **SSL Certificate Analysis** — Issuer, expiry date, and Subject Alternative Names (SANs) – detect expiring certs and hidden subdomains.
+- **HTTP Header Inspection** — Server, X‑Powered‑By, Content‑Security‑Policy – fingerprint the web stack and spot missing security headers.
+- **HTML Report** — Standalone, self‑contained HTML dashboard with a dark theme, tables, and risk summaries (in addition to Markdown).
+- **Progress Bars** — Real‑time feedback during module execution and subdomain resolution.
+- **Intelligence Report** — Auto‑generated Markdown and/or HTML pre‑engagement report with attack surface summary.
+- **Session Persistence** — Raw JSON saved per run.
 
 ---
 
@@ -40,10 +45,16 @@ pip install -r requirements.txt
 
 ```
 # Show help
-python lycoris.py
+python lycoris.py -h
 
-# Full scan with report
+# Full scan with Markdown report
 python lycoris.py -t example.com -m all -r
+
+# Full scan with HTML report (no Markdown)
+python lycoris.py -t example.com -m all --html
+
+# Both Markdown and HTML reports
+python lycoris.py -t example.com -m all -r --html
 
 # WHOIS + DNS only
 python lycoris.py -t example.com -m whois,dns
@@ -60,6 +71,8 @@ python lycoris.py -t example.com -m subdomains -o ~/recon
 | `-m / --modules` | `whois,dns,subdomains,all` | `all` |
 | `-o / --output` | Output directory | `output/` |
 | `-r / --report` | Generate Markdown report | off |
+| `--html` | Generate HTML report | off |
+| `-h / --help` | Show help screen | - |
 
 ---
 
@@ -72,10 +85,11 @@ lycoris/
 ├── README.md
 ├── LICENSE
 └── modules/
+    ├── __init__.py         # Package Marker
     ├── whois_recon.py      # WHOIS & RDAP intelligence
-    ├── dns_recon.py        # DNS enumeration + zone transfer + SPF/DMARC
-    ├── subdomain_enum.py   # CT log subdomain discovery
-    └── report_gen.py       # Markdown report generator
+    ├── dns_recon.py        # DNS enumeration, zone transfer, SPF/DMARC, SSL, headers
+    ├── subdomain_enum.py   # CT log subdomain discovery + PTR
+    └── report_gen.py       # Markdown & HTML report generator
 ```
 
 

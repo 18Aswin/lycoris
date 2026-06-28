@@ -152,7 +152,6 @@ def save_session(target, results, output_dir):
 @click.option("--output",    "-o", default="output", help="Output directory (default: output)")
 @click.option("--report",    "-r", is_flag=True,     help="Generate Markdown intelligence report")
 @click.option("--html",            is_flag=True,     help="Generate HTML intelligence report (in addition to JSON)")
-@click.option("--shodan-key",      envvar="SHODAN_API_KEY", default=None, help="Shodan API key")
 def main(target, modules, output, report, html, shodan_key):
     """Lycoris — Modular OSINT & Footprinting Framework"""
 

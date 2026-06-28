@@ -10,6 +10,7 @@ import urllib.parse
 from rich.table import Table
 from rich import box
 from rich.panel import Panel
+from rich.progress import Progress, BarColumn, TextColumn, SpinnerColumn
 
 INTERESTING_PATTERNS = [
     "admin", "administrator", "portal", "dashboard", "manage", "management",
@@ -130,8 +131,8 @@ def run_subdomain_enum(target, console):
 
     crt_data = _query_crtsh(target)
     if not crt_data:
-        console.print("  [yellow][!] No CT log data returned from crt.sh or CertSpotter.[/yellow]")
-        data["errors"].append("No data from CT logs")
+        console.print("  [yellow][!] No CT log data returned. crt.sh may have timed out.[/yellow]")
+        data["errors"].append("crt.sh returned no data")
         return data
 
     data["total_ct_entries"] = len(crt_data)
@@ -149,13 +150,46 @@ def run_subdomain_enum(target, console):
 
     live, interesting = [], []
 
+    # ── Progress bar for resolution ──────────────────────────────────────
+    from rich.progress import Progress, BarColumn, TextColumn, SpinnerColumn
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        console=console,
+        transient=False,
+    ) as progress_res:
+        resolve_task = progress_res.add_task(
+            "[cyan]Resolving subdomains...[/cyan]",
+            total=len(subdomains)
+        )
+
+        for subdomain in subdomains:
+            progress_res.update(resolve_task, description=f"[cyan]Resolving {subdomain}[/cyan]")
+            ips = _resolve_host(subdomain)
+            is_live = bool(ips)
+            pattern = _classify_subdomain(subdomain, target)
+
+            if is_live:
+                live.append({"subdomain": subdomain, "ips": ips, "pattern": pattern})
+            if pattern and is_live:
+                interesting.append({"subdomain": subdomain, "ips": ips, "pattern": pattern})
+
+            progress_res.advance(resolve_task)
+
+    data["live_subdomains"] = live
+    data["interesting_subdomains"] = interesting
+
+    # ── Table rendering and summary (unchanged) ──────────────────────────
     table = Table(title=f"Subdomains — {target}", box=box.SIMPLE_HEAVY,
                   show_header=True, header_style="bold cyan")
-    table.add_column("Subdomain", style="white",      min_width=35)
-    table.add_column("IP(s)",     style="green",      min_width=18)
-    table.add_column("Status",    width=10)
-    table.add_column("Flag",      style="yellow")
-
+    table.add_column("Subdomain", style="white", min_width=35)
+    table.add_column("IP(s)", style="green", min_width=18)
+    table.add_column("Status", width=10)
+    table.add_column("Flag", style="yellow")
+    
     for subdomain in subdomains:
         ips     = _resolve_host(subdomain)
         is_live = bool(ips)

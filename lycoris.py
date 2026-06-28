@@ -16,6 +16,7 @@ from modules.whois_recon import run_whois
 from modules.dns_recon import run_dns
 from modules.subdomain_enum import run_subdomain_enum
 from modules.report_gen import generate_report
+from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, SpinnerColumn
 
 console = Console()
 
@@ -156,7 +157,6 @@ def main(target, modules, output, report, shodan_key):
         sys.exit(0)
 
     print_banner_compact()
-
     target = target.lower().strip().replace("https://", "").replace("http://", "").rstrip("/")
 
     console.print(Panel(
@@ -182,21 +182,40 @@ def main(target, modules, output, report, shodan_key):
         }
     }
 
-    if "whois" in selected:
-        console.rule("[bold #C8102E]1  ·  WHOIS & DOMAIN INTELLIGENCE[/bold #C8102E]")
-        console.print()
-        results["whois"] = run_whois(target, console)
+    # ── Progress bar ──────────────────────────────────────────────────────
+    from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, SpinnerColumn
 
-    if "dns" in selected:
-        console.rule("[bold #4A55A2]2  ·  DNS ENUMERATION[/bold #4A55A2]")
-        console.print()
-        results["dns"] = run_dns(target, console)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeRemainingColumn(),
+        console=console,
+        transient=False,
+    ) as progress:
 
-    if "subdomains" in selected:
-        console.rule("[bold #9B2048]3  ·  SUBDOMAIN ENUMERATION[/bold #9B2048]")
-        console.print()
-        results["subdomains"] = run_subdomain_enum(target, console)
+        overall_task = progress.add_task(
+            "[cyan]Running modules...[/cyan]",
+            total=len(selected)
+        )
 
+        for mod in selected:
+            if mod == "whois":
+                progress.update(overall_task, description="[bold #C8102E]WHOIS Intelligence[/bold #C8102E]")
+                console.print()
+                results["whois"] = run_whois(target, console)
+            elif mod == "dns":
+                progress.update(overall_task, description="[bold #4A55A2]DNS Enumeration[/bold #4A55A2]")
+                console.print()
+                results["dns"] = run_dns(target, console)
+            elif mod == "subdomains":
+                progress.update(overall_task, description="[bold #9B2048]Subdomain Enumeration[/bold #9B2048]")
+                console.print()
+                results["subdomains"] = run_subdomain_enum(target, console)
+            progress.advance(overall_task)
+
+    # ── Save session ──────────────────────────────────────────────────────
     session_file = save_session(target, results, output)
 
     console.print()
@@ -208,7 +227,6 @@ def main(target, modules, output, report, shodan_key):
         console.print(f"[bold white]Report       :[/bold white]  [#9B2048]{report_file}[/#9B2048]")
 
     console.print()
-
 
 if __name__ == "__main__":
     main()

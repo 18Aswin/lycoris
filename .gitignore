@@ -216,3 +216,18 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ========== Lycoris-specific ==========
+# Output directory – contains JSON sessions and Markdown reports
+output/
+
+# Individual scan result files
+*.session.json
+*_report.md
+
+# Temporary files
+*.tmp
+*.temp
+
+# Local environment variables
+.env

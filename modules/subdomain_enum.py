@@ -45,7 +45,7 @@ def _query_crtsh(domain):
     try:
         resp = requests.get(
             f"https://crt.sh/?q=%.{domain}&output=json",
-            timeout=20,
+            timeout=50,
             headers={"Accept": "application/json"}
         )
         if resp.status_code == 200:

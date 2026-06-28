@@ -31,31 +31,25 @@ Lycoris is a Python CLI framework for automated passive and active footprinting.
 ## Installation
 
 ```bash
-git clone https://github.com/YOURUSERNAME/recon-atlas.git
-cd recon-atlas
+git clone https://github.com/18Aswin/lycoris.git
+cd lycoris
 pip install -r requirements.txt
-```
-
 ---
 
-## Usage
+## **Usage**
 
-```bash
+```
 # Show help
-python recon_atlas.py
+python lycoris.py
 
 # Full scan with report
-python recon_atlas.py -t example.com -m all -r
+python lycoris.py -t example.com -m all -r
 
 # WHOIS + DNS only
-python recon_atlas.py -t example.com -m whois,dns
+python lycoris.py -t example.com -m whois,dns
 
 # Subdomains only, custom output dir
-python recon_atlas.py -t example.com -m subdomains -o ~/recon
-
-# With Shodan API key
-export SHODAN_API_KEY=your_key_here
-python recon_atlas.py -t example.com -m all -r
+python lycoris.py -t example.com -m subdomains -o ~/recon
 ```
 
 ### Options
@@ -66,7 +60,6 @@ python recon_atlas.py -t example.com -m all -r
 | `-m / --modules` | `whois,dns,subdomains,all` | `all` |
 | `-o / --output` | Output directory | `output/` |
 | `-r / --report` | Generate Markdown report | off |
-| `--shodan-key` | Shodan API key | none |
 
 ---
 
@@ -77,6 +70,7 @@ lycoris/
 ├── lycoris.py              # CLI entry point
 ├── requirements.txt
 ├── README.md
+├── LICENSE
 └── modules/
     ├── whois_recon.py      # WHOIS & RDAP intelligence
     ├── dns_recon.py        # DNS enumeration + zone transfer + SPF/DMARC
@@ -84,24 +78,13 @@ lycoris/
     └── report_gen.py       # Markdown report generator
 ```
 
----
-
-## Roadmap
-
-| Version | Module |
-|---------|--------|
-| v1.1 | `shodan_recon.py` — IP intel, open ports, banners |
-| v1.2 | `email_harvest.py` — Hunter.io + pattern inference |
-| v1.3 | `google_dork.py` — Automated Google dorking |
-| v1.4 | HTML report with charts |
-| v2.0 | Full pipeline orchestration + scoring engine |
 
 ---
 
 ## Author
 
 **Aswin** — Security Analyst | VAPT  
-[LinkedIn](https://linkedin.com) · [Signal & Noise](https://nymphadorus.substack.com)
+[LinkedIn](https://www.linkedin.com/in/aswin-nair18/)
 
 ---
 

@@ -178,7 +178,7 @@ def main(target, modules, output, report, html):
             "target": target,
             "timestamp": datetime.now().isoformat(),
             "modules_run": selected,
-            "tool": "Lycoris v1.0"
+            "tool": "Lycoris v1.1"
         }
     }
 

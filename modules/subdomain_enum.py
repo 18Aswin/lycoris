@@ -1,5 +1,4 @@
 """
-Module: subdomain_enum.py
 Purpose: Passive subdomain discovery via Certificate Transparency logs
 """
 

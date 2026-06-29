@@ -1,5 +1,4 @@
 """
-Module: dns_recon.py
 Purpose: Comprehensive DNS record enumeration and analysis
 
 Techniques:

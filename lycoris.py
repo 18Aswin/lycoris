@@ -49,7 +49,7 @@ def print_banner():
 
 
 META = (
-    "  [bold white]Lycoris[/bold white] [dim]v1.0[/dim]  ·  "
+    "  [bold white]Lycoris[/bold white] [dim]v1.1[/dim]  ·  "
     "[dim]Modular OSINT & Footprinting Framework[/dim]\n"
     "  [dim]Author: Aswin  |  https://github.com/18Aswin/lycoris[/dim]"
 )

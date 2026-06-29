@@ -1,5 +1,4 @@
 """
-Module: whois_recon.py
 Purpose: WHOIS lookup and domain intelligence gathering
 
 Techniques:

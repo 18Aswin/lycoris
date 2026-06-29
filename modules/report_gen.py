@@ -1,5 +1,4 @@
 """
-Module: report_gen.py
 Purpose: Generate structured Markdown and HTML intelligence reports
 """
 

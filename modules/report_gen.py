@@ -1,4 +1,5 @@
 """
+Module: report_gen.py
 Purpose: Generate structured Markdown and HTML intelligence reports
 """
 
@@ -455,6 +456,7 @@ def generate_html_report(target, results, output_dir, console):
             border-collapse: collapse;
             margin: 1rem 0;
             font-size: 0.95rem;
+            table-layout: fixed;    /* enforce column widths */
         }
         th {
             background: #f1f3f5;
@@ -468,6 +470,8 @@ def generate_html_report(target, results, output_dir, console):
             padding: 0.5rem 0.8rem;
             border-bottom: 1px solid #e9ecef;
             vertical-align: top;
+            word-break: break-word;  /* wrap long values */
+            max-width: 400px;        /* prevent overflow */
         }
         tr:last-child td { border-bottom: none; }
         .risk-high { color: #dc3545; font-weight: 600; }
@@ -499,6 +503,8 @@ def generate_html_report(target, results, output_dir, console):
             padding: 0.1rem 0.4rem;
             border-radius: 4px;
             font-size: 0.9rem;
+            word-break: break-all;   /* ensure long strings wrap */
+            white-space: pre-wrap;   /* preserve spaces but wrap */
         }
         .footer {
             margin-top: 3rem;
@@ -541,6 +547,11 @@ def generate_html_report(target, results, output_dir, console):
         }
         .meta-item span {
             font-weight: 500;
+        }
+        /* Ensure code blocks inside table cells wrap */
+        td .code {
+            word-break: break-all;
+            white-space: pre-wrap;
         }
         @media (max-width: 600px) {
             body { padding: 1rem; }
@@ -591,6 +602,10 @@ def generate_html_report(target, results, output_dir, console):
     <!-- 2. WHOIS -->
     <h2>2. WHOIS &amp; Domain Intelligence</h2>
     <table>
+        <colgroup>
+            <col style="width:30%">
+            <col style="width:70%">
+        </colgroup>
         <thead><tr><th>Field</th><th>Value</th></tr></thead>
         <tbody>
             <tr><td>Domain</td><td>{{ whois.get('domain', 'N/A') }}</td></tr>
@@ -613,6 +628,10 @@ def generate_html_report(target, results, output_dir, console):
 
     <h3>3.1 Records</h3>
     <table>
+        <colgroup>
+            <col style="width:20%">
+            <col style="width:80%">
+        </colgroup>
         <thead><tr><th>Type</th><th>Value</th></tr></thead>
         <tbody>
         {% for rtype, values in records.items() %}
@@ -638,6 +657,11 @@ def generate_html_report(target, results, output_dir, console):
 
     <h3>3.3 Email Security (SPF / DMARC)</h3>
     <table>
+        <colgroup>
+            <col style="width:20%">
+            <col style="width:20%">
+            <col style="width:60%">
+        </colgroup>
         <thead><tr><th>Protocol</th><th>Status</th><th>Value</th></tr></thead>
         <tbody>
             <tr>
@@ -666,11 +690,15 @@ def generate_html_report(target, results, output_dir, console):
     {% if ssl_info %}
         <h3>3.4 SSL Certificate</h3>
         <table>
+            <colgroup>
+                <col style="width:30%">
+                <col style="width:70%">
+            </colgroup>
             <thead><tr><th>Field</th><th>Value</th></tr></thead>
             <tbody>
                 <tr><td>Issuer</td><td>{{ ssl_info.get('issuer', {}).get('organizationName', ['Unknown'])[0] }}</td></tr>
                 <tr><td>Expiry</td><td>{{ ssl_info.get('expiry', 'N/A') }}</td></tr>
-                <tr><td>Subject Alternative Names</td><td>{{ ssl_info.get('san', []) | join(', ') or 'None' }}</td></tr>
+                <tr><td>Subject Alternative Names</td><td><span class="code">{{ ssl_info.get('san', []) | join(', ') or 'None' }}</span></td></tr>
             </tbody>
         </table>
     {% endif %}
@@ -678,13 +706,17 @@ def generate_html_report(target, results, output_dir, console):
     {% if http_headers %}
         <h3>3.5 HTTP Headers</h3>
         <table>
+            <colgroup>
+                <col style="width:25%">
+                <col style="width:75%">
+            </colgroup>
             <thead><tr><th>Field</th><th>Value</th></tr></thead>
             <tbody>
                 <tr><td>Scheme</td><td>{{ http_headers.get('scheme', 'N/A') }}</td></tr>
                 <tr><td>Status Code</td><td>{{ http_headers.get('status_code', 'N/A') }}</td></tr>
                 <tr><td>Server</td><td>{{ http_headers.get('server', 'N/A') }}</td></tr>
                 <tr><td>X-Powered-By</td><td>{{ http_headers.get('x_powered_by', 'N/A') }}</td></tr>
-                <tr><td>Content-Security-Policy</td><td><span class="code">{{ http_headers.get('csp', 'None')[:100] }}{% if http_headers.get('csp')|length > 100 %}...{% endif %}</span></td></tr>
+                <tr><td>Content-Security-Policy</td><td><span class="code">{{ http_headers.get('csp', 'None') }}</span></td></tr>
             </tbody>
         </table>
     {% endif %}
@@ -695,6 +727,10 @@ def generate_html_report(target, results, output_dir, console):
     <h2>4. Subdomain Enumeration</h2>
     <p><strong>Source:</strong> Certificate Transparency logs (passive).</p>
     <table>
+        <colgroup>
+            <col style="width:50%">
+            <col style="width:50%">
+        </colgroup>
         <thead><tr><th>Metric</th><th>Count</th></tr></thead>
         <tbody>
             <tr><td>Unique subdomains</td><td>{{ unique_subdomains|length }}</td></tr>
@@ -706,6 +742,12 @@ def generate_html_report(target, results, output_dir, console):
     {% if live_subdomains %}
         <h3>Live Subdomains</h3>
         <table>
+            <colgroup>
+                <col style="width:25%">
+                <col style="width:25%">
+                <col style="width:25%">
+                <col style="width:25%">
+            </colgroup>
             <thead><tr><th>Subdomain</th><th>IP(s)</th><th>PTR</th><th>Pattern</th></tr></thead>
             <tbody>
             {% for item in live_subdomains %}
@@ -734,6 +776,11 @@ def generate_html_report(target, results, output_dir, console):
     <!-- 5. Attack Surface -->
     <h2>5. Attack Surface Summary</h2>
     <table>
+        <colgroup>
+            <col style="width:25%">
+            <col style="width:50%">
+            <col style="width:25%">
+        </colgroup>
         <thead><tr><th>Vector</th><th>Finding</th><th>Risk</th></tr></thead>
         <tbody>
             <tr>
@@ -769,7 +816,6 @@ def generate_html_report(target, results, output_dir, console):
                     {% else %}N/A{% endif %}
                 </td>
                 <td>
-                    {# We can't do date arithmetic in Jinja, so we show a static badge #}
                     <span class="badge badge-low">Valid (check expiry)</span>
                 </td>
             </tr>
